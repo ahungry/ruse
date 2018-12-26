@@ -3,7 +3,9 @@
    [clojure.repl :refer :all]
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
-   [clojure.spec.test.alpha :as stest])
+   [clojure.spec.test.alpha :as stest]
+   [clj-http.client :as client]
+   )
   (:import
    (jnr.ffi Platform Pointer)
    (jnr.ffi.types off_t size_t)
@@ -37,6 +39,17 @@
             (doto stat
               (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755")))))))]
     o))
+
+;; Pull some remote values
+(defn get-dog-pics []
+  (-> (client/get
+       ;; "https://dog.ceo/api/breeds/list/all"
+       "https://dog.ceo/api/breed/dane/images"
+       {:as :json})
+      :body :message))
+
+(defn get-few-dog-pics []
+  (into [] (take 10 (get-dog-pics))))
 
 (defn hello-fuse-custom []
   (let [hello-path (String. "/hello")
