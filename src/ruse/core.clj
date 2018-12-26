@@ -48,23 +48,17 @@
             (getattr [path stat]
               ;; Here we set attributes
               (cond
-                (Objects/equals path "/")
-                (do
-                  (doto stat
-                    (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
-                    (-> .-st_nlink (.set 2))
-                    )
-                  0
+                (= "/" path)
+                (doto stat
+                  (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
+                  (-> .-st_nlink (.set 2))
                   )
 
-                (.equals hello-path path)
-                (do
-                  (doto stat
-                    (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
-                     (-> .-st_nlink (.set 1))
-                     (-> .-st_size (.set (count hello-str)))
-                    )
-                  0
+                (= hello-path path)
+                (doto stat
+                  (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
+                  (-> .-st_nlink (.set 1))
+                  (-> .-st_size (.set (count hello-str)))
                   )
 
                 :else
@@ -74,22 +68,18 @@
             (readdir [path buf filt offset fi]
               ;; Here we choose what to list.
               (prn "In readdir")
-              (if
-                  (not (.equals (String. "/") path))
+              (if (not (= "/" path))
                   (enoent-error)
-                  (do
-                    (doto filt
-                      (.apply buf "." nil 0)
-                      (.apply buf ".." nil 0)
-                      (.apply buf (.substring hello-path 1) nil 0))
-                    0))
+                  (doto filt
+                    (.apply buf "." nil 0)
+                    (.apply buf ".." nil 0)
+                    (.apply buf (.substring hello-path 1) nil 0)))
               )
 
             (open [path fi]
               ;; Here we handle errors on opening
               (prn "In open")
-              (if
-                  (not (.equals hello-path path))
+              (if (not (= hello-path path))
                   (enoent-error)
                   0))
 
