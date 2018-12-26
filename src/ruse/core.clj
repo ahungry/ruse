@@ -31,24 +31,35 @@
         hello-str (String. "Hello World!")
         o (proxy [FuseStubFS] []
             (getattr [path stat]
-              (cond
-                (-> Objects (.equals path "/"))
-                (do
-                  (doto stat
-                    (-> .st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
-                    (-> .st_nlink (.set 2))) 0)
+              (prn "In getattr")
+              (prn path)
+              (prn stat)
+              ;; (-> stat .-st_mode (.set (bit-or FileStat/S_IFDIR 0777)))
+              0)
+            ;; So troublesome...
+            ;; (getattr [path stat]
+            ;;   (prn "In getattr now")
+            ;;   (prn path)
+            ;;   (prn stat)
+            ;;   (cond
+            ;;     (-> Objects (.equals path "/"))
+            ;;     (do
+            ;;       (doto stat
+            ;;         (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
+            ;;         (-> .-st_nlink (.set 2))) 0)
 
-                (.equals hello-path path)
-                (do
-                  (doto stat
-                    (-> .st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
-                    (-> .st_nlink (.set 1))
-                    (-> .st_size (.set 11))) 0)
+            ;;     (.equals hello-path path)
+            ;;     (do
+            ;;       (doto stat
+            ;;         (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
+            ;;         (-> .-st_nlink (.set 1))
+            ;;         (-> .-st_size (.set 11))) 0)
 
-                :else
-                (enoent-error)
-                ))
+            ;;     :else
+            ;;     (enoent-error)
+            ;;     ))
             (readdir [path buf filt offset fi]
+              (prn "In readdir")
               (if
                   (not (.equals (String. "/") path))
                   (enoent-error)
@@ -60,11 +71,13 @@
                     0))
               )
             (open [path fi]
+              (prn "In open")
               (if
                   (not (.equals hello-path path))
                   (enoent-error)
                   0))
             (read [path buf size offset fi]
+              (prn "In read")
               (if
                   (not (.equals hello-path path))
                   (enoent-error)
@@ -90,8 +103,10 @@
 
 (defn mount-it []
   (let [stub (hello-fuse)]
-    (-> stub (.mount (string-to-path "/tmp/tmp-3") true true))
-    (reset! stub-atom stub)))
+    ;; (-> stub (.mount (string-to-path "/tmp/tmp-10") true true))
+    (-> stub (.mount (string-to-path "/tmp/tmp-21") true true (into-array String [])))
+    ;; (reset! stub-atom stub)
+    ))
 
 (defn unmount-it []
   (-> @stub-atom .umount))
