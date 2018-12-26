@@ -44,12 +44,37 @@
 (defn get-dog-pics []
   (-> (client/get
        ;; "https://dog.ceo/api/breeds/list/all"
-       "https://dog.ceo/api/breed/dane/images"
+       "https://dog.ceo/api/breed/dane-great/images"
        {:as :json})
       :body :message))
 
+(def base-image-url "See it?"
+  "https://images.dog.ceo/breeds/dane-great/")
+
 (defn get-few-dog-pics []
   (into [] (take 10 (get-dog-pics))))
+
+(defn split-by-slash [s]
+  (clojure.string/split s #"/"))
+
+(defn get-filename-only [s]
+  (nth (reverse (split-by-slash s)) 0))
+
+(defn get-pics-clean []
+  (map get-filename-only (get-few-dog-pics)))
+
+(defn member [s col]
+  (some #(= s %) col))
+
+(def http-cache (atom []))
+(defn set-http-cache! []
+  (reset! http-cache (doall (into [] (get-pics-clean)))))
+
+(defn dog-exists?
+  "Check against the path string, always has a leading slash."
+  [s]
+  (prn s)
+  (member (subs s 1) @http-cache))
 
 (defn hello-fuse-custom []
   (let [hello-path (String. "/hello")
@@ -59,6 +84,7 @@
                   ;; HelloFuse
                   ] []
             (getattr [path stat]
+              ;; path is just a string, easy.
               ;; Here we set attributes
               (cond
                 ;; If it's the root, give dir permissions.
@@ -68,11 +94,16 @@
                   (-> .-st_nlink (.set 2))
                   )
 
-                (= hello-path path)
+                (dog-exists? path)
+                ;; (= hello-path path)
                 (doto stat
                   (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
                   (-> .-st_nlink (.set 1))
-                  (-> .-st_size (.set (count hello-str)))
+                  ;; (-> .-st_size (.set (count hello-str)))
+                  ;; TODO: Need to get the real size or tools won't know how to read it.
+                  (-> .-st_size (.set (* 1024 1024 10))) ; Fake size reporting - 10MB is mostly plenty.
+                  ;; I bet we could do something weird like on full dir listings give a small number
+                  ;; then on actual hits in the file (watching 'open') bump it way higher.
                   )
 
                 :else
@@ -83,17 +114,23 @@
               ;; Here we choose what to list.
               (prn "In readdir")
               (if (not (= "/" path))
-                  (enoent-error)
+                (enoent-error)
+                (do
                   (doto filt
                     (.apply buf "." nil 0)
                     (.apply buf ".." nil 0)
-                    (.apply buf (.substring hello-path 1) nil 0)))
+                    (.apply buf (.substring hello-path 1) nil 0)
+                    )
+                  (doseq [img @http-cache]
+                    (.apply filt buf img nil 0))
+                  filt)
+                )
               )
 
             (open [path fi]
               ;; Here we handle errors on opening
-              (prn "In open")
-              (if (not (= hello-path path))
+              (prn "In open: " path fi)
+              (if (not (dog-exists? path))
                   (enoent-error)
                   0))
 
@@ -101,7 +138,7 @@
               ;; Here we read the contents
               (prn "In read")
               (if
-                  (not (.equals hello-path path))
+                  (not (dog-exists? path))
                   (enoent-error)
                   (let [bytes
                         ;; (->> hello-str .getBytes (into-array Byte/TYPE))
