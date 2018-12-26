@@ -119,10 +119,10 @@
 
 (def stub-atom (atom nil))
 
-(defn mount-it []
+(defn mount-it [dir]
   (let [stub (hello-fuse-custom)]
     (future (reset! stub-atom stub)
-            (-> stub (.mount (string-to-path "/tmp/3") true true (into-array String []))))
+            (-> stub (.mount (string-to-path dir) true true (into-array String []))))
     ;; (-> stub (.mount (string-to-path "/tmp/tmp-23") nil true (into-array String [])))
     ;; (reset! stub-atom stub)
     ))
@@ -130,7 +130,16 @@
 (defn umount-it []
   (-> @stub-atom .umount))
 
+(defn cleanup-hooks [mnt]
+  (.addShutdownHook
+   (Runtime/getRuntime)
+   (Thread. (fn [] (println "Unmounting " mnt)))))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (println "Hello, World!"))
+  (let [dir (first args)]
+    (cleanup-hooks dir)
+    (println "Mounting: " dir)
+    (deref (mount-it dir))
+    (println "Try going to the directory and running ls.")))
