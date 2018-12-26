@@ -55,6 +55,7 @@
   [s]
   (-> (client/get
        (str base-image-url s)
+       ;; {:as :stream}
        ;; {:as :byte-array}
        )
       :body))
@@ -109,7 +110,9 @@
                   (-> .-st_nlink (.set 1))
                   ;; (-> .-st_size (.set (count hello-str)))
                   ;; TODO: Need to get the real size or tools won't know how to read it.
-                  (-> .-st_size (.set (* 1024 1024 10))) ; Fake size reporting - 10MB is mostly plenty.
+                  ;; (-> .-st_size (.set (* 1024 1024 10)))
+                                        ; Fake size reporting - 10MB is mostly plenty.
+                  (-> .-st_size (.set 67617))            ; dane-0.jpg test case
                   ;; I bet we could do something weird like on full dir listings give a small number
                   ;; then on actual hits in the file (watching 'open') bump it way higher.
                   )
@@ -148,21 +151,25 @@
               (if
                   (not (dog-exists? path))
                   (enoent-error)
+                  ;; (clojure.java.io/copy
+                  ;;  (get-dog-pic path)
+                  ;;  buf)
                   (let [bytes
                         ;; (->> hello-str .getBytes (into-array Byte/TYPE))
                         ;; (-> hello-str .getBytes byte-array)
                         (-> (get-dog-pic path) .getBytes byte-array)
-                        length (count bytes)
-                        size (if (< offset length)
-                               (do
-                                 (-> buf (.put 0 bytes 0 length))
-                                 (if (> (+ offset size) length)
-                                   (- length offset)
-                                   0))
-                               ;; else
-                               0
-                               )]
-                    size)
+                        ;; (get-dog-pic path)
+                        length (count bytes) ;; 67617 ;; (count bytes)
+                        my-size size]
+                    (if (< offset length)
+                      (do
+                        (when (> (+ offset my-size) length)
+                          (def my-size (- length offset)))
+                        (-> buf (.put 0 bytes 0 my-size)))
+                      ;; else
+                      (def my-size 0)
+                      )
+                    my-size)
                   ))
             )]
     o))
