@@ -35,13 +35,13 @@
                 (-> Objects (.equals path "/"))
                 (do
                   (doto stat
-                    (-> .st_mode (.set (bit-or FileStat/S_IFDIR 0755)))
+                    (-> .st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
                     (-> .st_nlink (.set 2))) 0)
 
                 (.equals hello-path path)
                 (do
                   (doto stat
-                    (-> .st_mode (.set (bit-or FileStat/S_IFREG 0444)))
+                    (-> .st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
                     (-> .st_nlink (.set 1))
                     (-> .st_size (.set 11))) 0)
 
@@ -90,7 +90,7 @@
 
 (defn mount-it []
   (let [stub (hello-fuse)]
-    (-> stub (.mount (string-to-path "/tmp/tmp-2") true true))
+    (-> stub (.mount (string-to-path "/tmp/tmp-3") true true))
     (reset! stub-atom stub)))
 
 (defn unmount-it []
