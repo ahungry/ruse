@@ -1,6 +1,6 @@
-# ruse
+# RUSE
 
-Random Userspace Filesystem
+RUSE Userspace System Extensions
 
 ## Installation
 
