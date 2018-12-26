@@ -157,7 +157,11 @@
                   (let [bytes
                         ;; (->> hello-str .getBytes (into-array Byte/TYPE))
                         ;; (-> hello-str .getBytes byte-array)
-                        (-> (get-dog-pic path) .getBytes byte-array)
+                        ;; (->> (get-dog-pic path) (.getBytes "ASCII") byte-array)
+                        ;; (->> (get-dog-pic path) (.getBytes "UTF-8") byte-array)
+                        ;; (->> (get-dog-pic path) (.getBytes "ISO-8859-1") byte-array)
+                        (->> (String. (get-dog-pic path) "ASCII")
+                             (.getBytes "ASCII") byte-array)
                         ;; (get-dog-pic path)
                         length (count bytes) ;; 67617 ;; (count bytes)
                         my-size size]
