@@ -2,6 +2,19 @@
 
 Random Userspace Filesystem
 
+## Installation
+
+This requires lein:
+
+https://leiningen.org/
+
+After it is installed and 'lein' is in your $PATH, just run (in
+project root):
+
+```
+lein deps
+```
+
 ## Usage
 
 Try this command, you'll be able to browse a directory sourced from
