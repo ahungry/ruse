@@ -27,19 +27,21 @@
   (* -1 (ErrorCodes/ENOENT)))
 
 (defn hello-fuse []
-  (let [o (proxy [FuseStubFS] []
+  (let [hello-path (String. "/hello")
+        hello-str (String. "Hello World!")
+        o (proxy [FuseStubFS] []
             (getattr [path stat]
               (cond
                 (-> Objects (.equals path "/"))
                 (do
                   (doto stat
-                    (-> .st_mode (.set (bit-or FileStat/S_IFDIR 755)))
+                    (-> .st_mode (.set (bit-or FileStat/S_IFDIR 0755)))
                     (-> .st_nlink (.set 2))) 0)
 
-                (= "/hello" path)
+                (.equals hello-path path)
                 (do
                   (doto stat
-                    (-> .st_mode (.set (bit-or FileStat/S_IFREG 444)))
+                    (-> .st_mode (.set (bit-or FileStat/S_IFREG 0444)))
                     (-> .st_nlink (.set 1))
                     (-> .st_size (.set 11))) 0)
 
@@ -47,35 +49,40 @@
                 (enoent-error)
                 ))
             (readdir [path buf filt offset fi]
-              (if (not (= "/" path))
-                (enoent-error)
-                (do
-                  (doto filt
-                    (.apply buf "." nil 0)
-                    (.apply buf ".." nil 0)
-                    (.apply buf "hello" nil 0))
-                  0))
+              (if
+                  (not (.equals (String. "/") path))
+                  (enoent-error)
+                  (do
+                    (doto filt
+                      (.apply buf "." nil 0)
+                      (.apply buf ".." nil 0)
+                      (.apply buf (.substring hello-path 1) nil 0))
+                    0))
               )
             (open [path fi]
-              (if (not (= "/hello" path))
-                (enoent-error)
-                0))
+              (if
+                  (not (.equals hello-path path))
+                  (enoent-error)
+                  0))
             (read [path buf size offset fi]
-              (if (not (= "/hello" path))
-                (enoent-error)
-                (let [bytes (->> (String. "Hello World!") .getBytes (into-array Byte/TYPE))
-                      length (count bytes)
-                      size (if (< offset length)
-                             (do
-                               (-> buf (.put 0 bytes 0 length))
-                               (if (> (+ offset size) length)
-                                 (- length offset)
-                                 0))
-                             ;; else
-                             0
-                             )]
-                  size)
-                ))
+              (if
+                  (not (.equals hello-path path))
+                  (enoent-error)
+                  (let [bytes
+                        ;; (->> hello-str .getBytes (into-array Byte/TYPE))
+                        (-> hello-str .getBytes byte-array)
+                        length (count bytes)
+                        size (if (< offset length)
+                               (do
+                                 (-> buf (.put 0 bytes 0 length))
+                                 (if (> (+ offset size) length)
+                                   (- length offset)
+                                   0))
+                               ;; else
+                               0
+                               )]
+                    size)
+                  ))
             )]
     o))
 
@@ -83,7 +90,7 @@
 
 (defn mount-it []
   (let [stub (hello-fuse)]
-    (-> stub (.mount (string-to-path "/tmp/mnth") true true))
+    (-> stub (.mount (string-to-path "/tmp/tmp-2") true true))
     (reset! stub-atom stub)))
 
 (defn unmount-it []
