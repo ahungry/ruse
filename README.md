@@ -1,36 +1,22 @@
 # ruse
 
-FIXME: description
-
-## Installation
-
-Download from http://example.com/FIXME.
+Random Userspace Filesystem
 
 ## Usage
 
-FIXME: explanation
+Try this command, you'll be able to browse a directory sourced from
+the RESTful API from the response of images at: https://dog.ceo/api/breed/dane-great/images
 
-    $ java -jar ruse-0.1.0-standalone.jar [args]
+This would be a great way to view/edit CRUD documents over other
+RESTful endpoints, or even to display database records for editing in
+a user's favorite editor.
 
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
+```
+mkdir /tmp/dog-pics && lein run /tmp/dog-pics
+```
 
 ## License
 
-Copyright © 2018 FIXME
+Copyright © 2018 Matthew Carter <m@ahungry.com>
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+AGPLv3 or later
