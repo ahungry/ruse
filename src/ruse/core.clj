@@ -61,6 +61,7 @@
             (getattr [path stat]
               ;; Here we set attributes
               (cond
+                ;; If it's the root, give dir permissions.
                 (= "/" path)
                 (doto stat
                   (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
