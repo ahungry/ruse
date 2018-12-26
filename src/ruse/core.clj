@@ -9,6 +9,7 @@
    (jnr.ffi.types off_t size_t)
    (ru.serce.jnrfuse ErrorCodes FuseFillDir FuseStubFS)
    (ru.serce.jnrfuse.struct FileStat FuseFileInfo)
+   (ru.serce.jnrfuse.examples HelloFuse)
    (java.io File)
    (java.nio.file Paths)
    (java.util Objects))
@@ -27,6 +28,9 @@
   (* -1 (ErrorCodes/ENOENT)))
 
 (defn hello-fuse []
+  (HelloFuse.))
+
+(defn xhello-fuse []
   (let [hello-path (String. "/hello")
         hello-str (String. "Hello World!")
         o (proxy [FuseStubFS] []
@@ -103,12 +107,13 @@
 
 (defn mount-it []
   (let [stub (hello-fuse)]
-    ;; (-> stub (.mount (string-to-path "/tmp/tmp-10") true true))
-    (-> stub (.mount (string-to-path "/tmp/tmp-21") true true (into-array String [])))
+    (future (reset! stub-atom stub)
+            (-> stub (.mount (string-to-path "/tmp/1") true true (into-array String []))))
+    ;; (-> stub (.mount (string-to-path "/tmp/tmp-23") nil true (into-array String [])))
     ;; (reset! stub-atom stub)
     ))
 
-(defn unmount-it []
+(defn umount-it []
   (-> @stub-atom .umount))
 
 (defn -main
