@@ -30,39 +30,49 @@
 (defn hello-fuse []
   (HelloFuse.))
 
-(defn xhello-fuse []
+(defn xhello-fuse-custom []
+  (let [o
+        (proxy [HelloFuse] []
+          (getattr [path stat]
+            (doto stat
+              (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755")))))))]
+    o))
+
+(defn hello-fuse-custom []
   (let [hello-path (String. "/hello")
         hello-str (String. "Hello World!")
-        o (proxy [FuseStubFS] []
+        o (proxy [
+                  FuseStubFS
+                  ;; HelloFuse
+                  ] []
             (getattr [path stat]
-              (prn "In getattr")
-              (prn path)
-              (prn stat)
-              ;; (-> stat .-st_mode (.set (bit-or FileStat/S_IFDIR 0777)))
-              0)
-            ;; So troublesome...
-            ;; (getattr [path stat]
-            ;;   (prn "In getattr now")
-            ;;   (prn path)
-            ;;   (prn stat)
-            ;;   (cond
-            ;;     (-> Objects (.equals path "/"))
-            ;;     (do
-            ;;       (doto stat
-            ;;         (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
-            ;;         (-> .-st_nlink (.set 2))) 0)
+              ;; Here we set attributes
+              (cond
+                (Objects/equals path "/")
+                (do
+                  (doto stat
+                    (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
+                    (-> .-st_nlink (.set 2))
+                    )
+                  0
+                  )
 
-            ;;     (.equals hello-path path)
-            ;;     (do
-            ;;       (doto stat
-            ;;         (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
-            ;;         (-> .-st_nlink (.set 1))
-            ;;         (-> .-st_size (.set 11))) 0)
+                (.equals hello-path path)
+                (do
+                  (doto stat
+                    (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
+                     (-> .-st_nlink (.set 1))
+                     (-> .-st_size (.set (count hello-str)))
+                    )
+                  0
+                  )
 
-            ;;     :else
-            ;;     (enoent-error)
-            ;;     ))
+                :else
+                (enoent-error)
+                ))
+
             (readdir [path buf filt offset fi]
+              ;; Here we choose what to list.
               (prn "In readdir")
               (if
                   (not (.equals (String. "/") path))
@@ -74,13 +84,17 @@
                       (.apply buf (.substring hello-path 1) nil 0))
                     0))
               )
+
             (open [path fi]
+              ;; Here we handle errors on opening
               (prn "In open")
               (if
                   (not (.equals hello-path path))
                   (enoent-error)
                   0))
+
             (read [path buf size offset fi]
+              ;; Here we read the contents
               (prn "In read")
               (if
                   (not (.equals hello-path path))
@@ -106,9 +120,9 @@
 (def stub-atom (atom nil))
 
 (defn mount-it []
-  (let [stub (hello-fuse)]
+  (let [stub (hello-fuse-custom)]
     (future (reset! stub-atom stub)
-            (-> stub (.mount (string-to-path "/tmp/1") true true (into-array String []))))
+            (-> stub (.mount (string-to-path "/tmp/3") true true (into-array String []))))
     ;; (-> stub (.mount (string-to-path "/tmp/tmp-23") nil true (into-array String [])))
     ;; (reset! stub-atom stub)
     ))
