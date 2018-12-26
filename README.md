@@ -2,6 +2,15 @@
 
 RUSE Userspace System Extensions
 
+## Huh?
+
+This is a fun demo/POC of using Clojure + Linux FUSE (Filesystem in
+Userspace).
+
+Currently I have a sample that maps some RESTful API data to a local
+file mount.  This then allows the user to run all their native file
+level commands (`ls`, `grep`, `feh`) on the directory.
+
 ## Installation
 
 This requires lein:
@@ -26,6 +35,14 @@ a user's favorite editor.
 
 ```
 mkdir /tmp/dog-pics && lein run /tmp/dog-pics
+```
+
+Then in another terminal:
+
+```
+cd /tmp/dog-pics
+ls
+feh dane-0.jpg # Use your CLI image editor of choice
 ```
 
 ## License
