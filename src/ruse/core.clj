@@ -49,7 +49,15 @@
       :body :message))
 
 (def base-image-url "See it?"
-  "https://images.dog.ceo/breeds/dane-great/")
+  "https://images.dog.ceo/breeds/dane-great")
+
+(defn get-dog-pic
+  [s]
+  (-> (client/get
+       (str base-image-url s)
+       ;; {:as :byte-array}
+       )
+      :body))
 
 (defn get-few-dog-pics []
   (into [] (take 10 (get-dog-pics))))
@@ -142,7 +150,8 @@
                   (enoent-error)
                   (let [bytes
                         ;; (->> hello-str .getBytes (into-array Byte/TYPE))
-                        (-> hello-str .getBytes byte-array)
+                        ;; (-> hello-str .getBytes byte-array)
+                        (-> (get-dog-pic path) .getBytes byte-array)
                         length (count bytes)
                         size (if (< offset length)
                                (do
