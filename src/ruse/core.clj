@@ -121,10 +121,14 @@
                   (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
                   (-> .-st_nlink (.set 1))
                   ;; (-> .-st_size (.set (count hello-str)))
+
                   ;; TODO: Need to get the real size or tools won't know how to read it.
-                  ;; (-> .-st_size (.set (* 1024 1024 10)))
+                  ;; (-> .-st_size (.set (* 1024 1024 1)))
                                         ; Fake size reporting - 10MB is mostly plenty.
-                  (-> .-st_size (.set 67617))            ; dane-0.jpg test case
+
+                  (-> .-st_size (.set 67617))
+                                        ; dane-0.jpg test case
+
                   ;; I bet we could do something weird like on full dir listings give a small number
                   ;; then on actual hits in the file (watching 'open') bump it way higher.
                   )
@@ -166,29 +170,28 @@
                   ;; (clojure.java.io/copy
                   ;;  (get-dog-pic path)
                   ;;  buf)
-                  (let [bytes (get-dog-pic path)
-                        ;; (->> hello-str .getBytes (into-array Byte/TYPE))
-                        ;; (-> hello-str .getBytes byte-array)
-                        ;; (->> (get-dog-pic path) (.getBytes "ASCII") byte-array)
-                        ;; (->> (get-dog-pic path) (.getBytes "UTF-8") byte-array)
-                        ;; (->> (get-dog-pic path) (.getBytes "ISO-8859-1") byte-array)
-                        ;; (->> (String. (get-dog-pic path) "ASCII")
-                        ;;      (.getBytes "ASCII") byte-array)
-                        ;; (get-dog-pic path)
-                        length (count bytes) ;; 67617 ;; (count bytes)
-                        my-size size]
-                    ;; This works, but would the parsing code be needed?
-                    (-> buf (.put 0 bytes 0 length))
-                    ;; https://github.com/SerCeMan/jnr-fuse/blob/master/src/main/java/ru/serce/jnrfuse/examples/HelloFuse.java
-                    ;; (if (< offset length)
-                    ;;   (do
-                    ;;     (when (> (+ offset my-size) length)
-                    ;;       (def my-size (- length offset)))
-                    ;;     (-> buf (.put 0 bytes 0 my-size)))
-                    ;;   ;; else
-                    ;;   (def my-size 0)
-                    ;;   )
-                    my-size)
+                  (if (not (= 0 offset))
+                    0
+                    (let [bytes (get-dog-pic path)
+                          length (count bytes) ;; 67617 ;; (count bytes)
+                          my-size size]
+                      ;; This works, but would the parsing code be needed?
+                      ;; I guess if we had a very large file, it could exceed RAM/memory
+                      ;; and this type of call would bomb out.
+                      (-> buf (.put 0 bytes 0 length))
+                      ;; length
+                      size
+                      ;; https://github.com/SerCeMan/jnr-fuse/blob/master/src/main/java/ru/serce/jnrfuse/examples/HelloFuse.java
+                      ;; (if (< offset length)
+                      ;;   (do
+                      ;;     (when (> (+ offset my-size) length)
+                      ;;       (def my-size (- length offset)))
+                      ;;     (-> buf (.put 0 bytes 0 my-size)))
+                      ;;   ;; else
+                      ;;   (def my-size 0)
+                      ;;   )
+                      ;; my-size
+                      ))
                   ))
             )]
     o))
