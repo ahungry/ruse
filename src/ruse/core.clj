@@ -56,9 +56,21 @@
   (-> (client/get
        (str base-image-url s)
        ;; {:as :stream}
-       ;; {:as :byte-array}
+        {:as :byte-array}
        )
       :body))
+
+(defn test-get-dog-pic []
+  (let [bytes (get-dog-pic "/dane-0.jpg")]
+    (prn (count bytes))
+    (clojure.java.io/copy
+     ;; (->> (get-dog-pic "/dane-0.jpg") (.getBytes "UTF-8"))
+     bytes
+     (java.io.File. "/tmp/dane-0-test.jpg")))
+  ;; (spit "/tmp/dane-0-test.jpg"
+  ;;       (get-dog-pic "/dane-0.jpg")
+  ;;       :encoding "UTF-8")
+  )
 
 (defn get-few-dog-pics []
   (into [] (take 10 (get-dog-pics))))
@@ -154,25 +166,28 @@
                   ;; (clojure.java.io/copy
                   ;;  (get-dog-pic path)
                   ;;  buf)
-                  (let [bytes
+                  (let [bytes (get-dog-pic path)
                         ;; (->> hello-str .getBytes (into-array Byte/TYPE))
                         ;; (-> hello-str .getBytes byte-array)
                         ;; (->> (get-dog-pic path) (.getBytes "ASCII") byte-array)
                         ;; (->> (get-dog-pic path) (.getBytes "UTF-8") byte-array)
                         ;; (->> (get-dog-pic path) (.getBytes "ISO-8859-1") byte-array)
-                        (->> (String. (get-dog-pic path) "ASCII")
-                             (.getBytes "ASCII") byte-array)
+                        ;; (->> (String. (get-dog-pic path) "ASCII")
+                        ;;      (.getBytes "ASCII") byte-array)
                         ;; (get-dog-pic path)
                         length (count bytes) ;; 67617 ;; (count bytes)
                         my-size size]
-                    (if (< offset length)
-                      (do
-                        (when (> (+ offset my-size) length)
-                          (def my-size (- length offset)))
-                        (-> buf (.put 0 bytes 0 my-size)))
-                      ;; else
-                      (def my-size 0)
-                      )
+                    ;; This works, but would the parsing code be needed?
+                    (-> buf (.put 0 bytes 0 length))
+                    ;; https://github.com/SerCeMan/jnr-fuse/blob/master/src/main/java/ru/serce/jnrfuse/examples/HelloFuse.java
+                    ;; (if (< offset length)
+                    ;;   (do
+                    ;;     (when (> (+ offset my-size) length)
+                    ;;       (def my-size (- length offset)))
+                    ;;     (-> buf (.put 0 bytes 0 my-size)))
+                    ;;   ;; else
+                    ;;   (def my-size 0)
+                    ;;   )
                     my-size)
                   ))
             )]
