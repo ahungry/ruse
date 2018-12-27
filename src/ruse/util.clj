@@ -27,3 +27,11 @@
 
 (defn member [s col]
   (some #(= s %) col))
+
+(defmacro lexical-ctx-map
+  "Pull in all the lexical bindings into a map for passing somewhere else."
+  []
+  (let [symbols (keys &env)]
+    (zipmap (map (fn [sym] `(quote ~(keyword sym)))
+                 symbols)
+            symbols)))

@@ -23,31 +23,35 @@
 (defn enoent-error []
   (* -1 (ErrorCodes/ENOENT)))
 
-(defn getattr-directory [path stat]
+(defn getattr-directory [{:keys [path stat]}]
   (doto stat
     (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
     (-> .-st_nlink (.set 2))))
 
-(defn getattr-file [path stat]
+(defn getattr-file [{:keys [path stat]}]
   (doto stat
     (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
     (-> .-st_nlink (.set 1))
     ;; Fake size reporting - 10MB is plenty.
     (-> .-st_size (.set (* 1024 1024 1)))))
 
-(defn readdir-list-files [path buf filt offset fi]
+(defn readdir-list-files
+  "FILES is a string col."
+  [{:keys [path buf filt offset fi files]}]
   (doto filt
     (.apply buf "." nil 0)
     (.apply buf ".." nil 0)
     (.apply buf "fake-dir" nil 0))
-  (doseq [img @dog/http-cache]
-    (.apply filt buf img nil 0))
+  (doseq [file files]
+    (.apply filt buf file nil 0))
+  ;; (doseq [img @dog/http-cache]
+  ;;   (.apply filt buf img nil 0))
   filt)
 
-(defn read-fuse-file [path buf size offset fi]
+(defn read-fuse-file [{:keys [path buf size offset fi]}]
   (let [
         bytes (dog/get-dog-pic path)
-        length (count bytes) ;; 67617 ;; (count bytes)
+        length (count bytes)
         bytes-to-read (min (- length offset) size)
         contents (ByteBuffer/wrap bytes)
         bytes-read (byte-array bytes-to-read)
@@ -59,63 +63,58 @@
     (.position contents 0)
     bytes-to-read))
 
-(defn hello-fuse-custom
-  "A reference implementation.  Serves a directory from the dog API of
-  the various images."
-  []
-  (let [hello-path (String. "/hello")
-        hello-str (String. "Hello World!")
-        o (proxy [FuseStubFS] []
-            (getattr
-              [path stat]               ; string , jni
-              (cond
-                (= "/" path) (getattr-directory path stat)
-                (dog/dog-exists? path) (getattr-file path stat)
-                :else (enoent-error)))
-
-            (readdir
-              [path buf filt offset fi]
-              ;; Here we choose what to list.
-              (prn "In readdir")
-              (if (not (= "/" path))
-                (enoent-error)
-                (readdir-list-files [path buf filt offset fi])))
-
-            (open [path fi]
-              ;; Here we handle errors on opening
-              (prn "In open: " path fi)
-              (if (not (dog/dog-exists? path))
-                (enoent-error)
-                0))
-
-            (read
-              [path buf size offset fi]
-              ;; Here we read the contents
-              (prn "In read")
-              (if
-                  (not (dog/dog-exists? path))
-                  (enoent-error)
-                  (read-fuse-file path buf size offset fi)))
-            )]
-    o))
+(defn fuse-custom-mount
+  "FILES is a string col."
+  [{:keys [files]}]
+  (proxy [FuseStubFS] []
+    (getattr
+      [path stat]                       ; string , jni
+      (cond
+        (= "/" path) (getattr-directory (u/lexical-ctx-map))
+        (dog/dog-exists? path) (getattr-file (u/lexical-ctx-map))
+        :else (enoent-error)))
+    (readdir
+      [path buf filt offset fi]
+      ;; Here we choose what to list.
+      (prn "In readdir")
+      (if (not (= "/" path))
+        (enoent-error)
+        (readdir-list-files (u/lexical-ctx-map))))
+    (open
+      [path fi]
+      ;; Here we handle errors on opening
+      (prn "In open: " path fi)
+      (if (not (dog/dog-exists? path))
+        (enoent-error)
+        0))
+    (read
+      [path buf size offset fi]
+      ;; Here we read the contents
+      (prn "In read")
+      (if
+          (not (dog/dog-exists? path))
+          (enoent-error)
+          (read-fuse-file (u/lexical-ctx-map))))))
 
 (def stub-atom (atom nil))
 
-(defn mount-it [dir]
-  (let [stub (hello-fuse-custom)]
+(defn mount-it! [dir]
+  (let [stub (fuse-custom-mount {:files @dog/http-cache})]
     (future
       (reset! stub-atom stub)
       ;; params: path blocking debug options
       (-> stub (.mount (u/string-to-path dir) true true (into-array String []))))
     ))
 
-(defn umount-it []
+(defn umount-it! []
   (-> @stub-atom .umount))
 
 (defn cleanup-hooks [mnt]
   (.addShutdownHook
    (Runtime/getRuntime)
-   (Thread. (fn [] (println "Unmounting " mnt)))))
+   (Thread. (fn []
+              (println "Unmounting " mnt)
+              (umount-it!)))))
 
 (defn -main
   "I don't do a whole lot ... yet."
@@ -124,5 +123,5 @@
     (cleanup-hooks dir)
     (println "Mounting: " dir)
     (dog/set-http-cache!)
-    (deref (mount-it dir))
+    (deref (mount-it! dir))
     (println "Try going to the directory and running ls.")))
