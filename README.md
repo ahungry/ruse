@@ -42,8 +42,19 @@ Then in another terminal:
 ```
 cd /tmp/dog-pics
 ls
+cd dane
 feh dane-0.jpg # Use your CLI image editor of choice
 ```
+
+or if you prefer a more GUI based approach, just open your thumbnailer
+capable file explorer (or use these two small tools to do it):
+
+```
+sudo pacman -S raw-thumbnailer pcmanfm
+cd /tpm/dog-pics
+pcmanfm .
+```
+
 
 ## License
 
