@@ -7,9 +7,20 @@
    [clj-http.client :as client]
    )
   (:import
+   (java.io File)
+   (java.nio.file Paths)
    )
   (:gen-class)
   )
+
+(defn string-to-uri [s]
+  (-> s File. .toURI))
+
+(defn uri-to-path [s]
+  (Paths/get s))
+
+(defn string-to-path [s]
+  (-> s string-to-uri uri-to-path))
 
 (defn split-by-slash [s]
   (clojure.string/split s #"/"))
