@@ -5,6 +5,8 @@
    [clojure.spec.gen.alpha :as gen]
    [clojure.spec.test.alpha :as stest]
    [clj-http.client :as client]
+   [ruse.util :as u]
+   [ruse.dog :as dog]
    )
   (:import
    (jnr.ffi Platform Pointer)
@@ -30,74 +32,6 @@
 (defn enoent-error []
   (* -1 (ErrorCodes/ENOENT)))
 
-(defn hello-fuse []
-  (HelloFuse.))
-
-(defn xhello-fuse-custom []
-  (let [o
-        (proxy [HelloFuse] []
-          (getattr [path stat]
-            (doto stat
-              (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755")))))))]
-    o))
-
-;; Pull some remote values
-(defn get-dog-pics []
-  (-> (client/get
-       ;; "https://dog.ceo/api/breeds/list/all"
-       "https://dog.ceo/api/breed/dane-great/images"
-       {:as :json})
-      :body :message))
-
-(def base-image-url "See it?"
-  "https://images.dog.ceo/breeds/dane-great")
-
-(defn get-dog-pic
-  [s]
-  (-> (client/get
-       (str base-image-url s)
-       ;; {:as :stream}
-        {:as :byte-array}
-       )
-      :body))
-
-(defn test-get-dog-pic []
-  (let [bytes (get-dog-pic "/dane-0.jpg")]
-    (prn (count bytes))
-    (clojure.java.io/copy
-     ;; (->> (get-dog-pic "/dane-0.jpg") (.getBytes "UTF-8"))
-     bytes
-     (java.io.File. "/tmp/dane-0-test.jpg")))
-  ;; (spit "/tmp/dane-0-test.jpg"
-  ;;       (get-dog-pic "/dane-0.jpg")
-  ;;       :encoding "UTF-8")
-  )
-
-(defn get-few-dog-pics []
-  (into [] (take 10 (get-dog-pics))))
-
-(defn split-by-slash [s]
-  (clojure.string/split s #"/"))
-
-(defn get-filename-only [s]
-  (nth (reverse (split-by-slash s)) 0))
-
-(defn get-pics-clean []
-  (map get-filename-only (get-few-dog-pics)))
-
-(defn member [s col]
-  (some #(= s %) col))
-
-(def http-cache (atom []))
-(defn set-http-cache! []
-  (reset! http-cache (doall (into [] (get-pics-clean)))))
-
-(defn dog-exists?
-  "Check against the path string, always has a leading slash."
-  [s]
-  (prn s)
-  (member (subs s 1) @http-cache))
-
 (defn test-bytes []
   (let [bytes (->> (String. "Dog)") .getBytes)
         bytes-to-read 2
@@ -111,7 +45,21 @@
       )
     bytes-read))
 
-(defn hello-fuse-custom []
+(defn hello-fuse []
+  (HelloFuse.))
+
+(defn xhello-fuse-custom []
+  (let [o
+        (proxy [HelloFuse] []
+          (getattr [path stat]
+            (doto stat
+              (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755")))))))]
+    o))
+
+(defn hello-fuse-custom
+  "A reference implementation.  Serves a directory from the dog API of
+  the various images."
+  []
   (let [hello-path (String. "/hello")
         hello-str (String. "Hello World!")
         o (proxy [
@@ -129,7 +77,7 @@
                   (-> .-st_nlink (.set 2))
                   )
 
-                (dog-exists? path)
+                (dog/dog-exists? path)
                 ;; (= hello-path path)
                 (doto stat
                   (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
@@ -162,7 +110,7 @@
                     (.apply buf ".." nil 0)
                     (.apply buf (.substring hello-path 1) nil 0)
                     )
-                  (doseq [img @http-cache]
+                  (doseq [img @dog/http-cache]
                     (.apply filt buf img nil 0))
                   filt)
                 )
@@ -171,7 +119,7 @@
             (open [path fi]
               ;; Here we handle errors on opening
               (prn "In open: " path fi)
-              (if (not (dog-exists? path))
+              (if (not (dog/dog-exists? path))
                 (enoent-error)
                 0))
 
@@ -179,13 +127,13 @@
               ;; Here we read the contents
               (prn "In read")
               (if
-                  (not (dog-exists? path))
+                  (not (dog/dog-exists? path))
                   (enoent-error)
                   ;; (clojure.java.io/copy
                   ;;  (get-dog-pic path)
                   ;;  buf)
                   (let [
-                        bytes (get-dog-pic path)
+                        bytes (dog/get-dog-pic path)
                         length (count bytes) ;; 67617 ;; (count bytes)
                         bytes-to-read (min (- length offset) size)
                         contents (ByteBuffer/wrap bytes)
@@ -242,6 +190,6 @@
   (let [dir (first args)]
     (cleanup-hooks dir)
     (println "Mounting: " dir)
-    (set-http-cache!)
+    (dog/set-http-cache!)
     (deref (mount-it dir))
     (println "Try going to the directory and running ls.")))
