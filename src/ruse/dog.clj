@@ -12,36 +12,51 @@
   (:gen-class)
   )
 
-(defn get-dog-breeds-from-api []
+(defn api-get-dog-breeds []
   (-> (client/get "https://dog.ceo/api/breeds/list/all"
                   {:as :json})
       :body :message))
 
-(defn get-dog-breeds []
-  (->> (get-dog-breeds-from-api)
-       keys
-       (map #(subs (str %) 1))
-       (into [])))
-
-(def breeds-atom (atom nil))
-
-(defn set-breeds-atom! []
-  (reset! breeds-atom (get-dog-breeds)))
-
-(defn get-breeds []
-  (if @breeds-atom @breeds-atom
-      (set-breeds-atom!)))
-
-(defn breed-exists? [path]
-  (u/member (subs path 1) (get-breeds)))
+(def mapi-get-dog-breeds (memoize api-get-dog-breeds))
 
 ;; Pull some remote values
-(defn get-dog-pics [breed]
+(defn api-get-dog-pics [breed]
   (-> (client/get
        ;; "https://dog.ceo/api/breeds/list/all"
        (str "https://dog.ceo/api/breed/" breed "/images")
        {:as :json})
       :body :message))
+
+(def mapi-get-dog-pics (memoize api-get-dog-pics))
+
+(defn api-get-dog-pic
+  "Ensure that S has the leading slash.
+  Sample: /whippet/n02091134_10242.jpg"
+  [breed s]
+  (-> (client/get
+       (str "https://images.dog.ceo/breeds/" breed "/" s)
+       ;; {:as :stream}
+       {:as :byte-array}
+       )
+      :body))
+
+(def mapi-get-dog-pic (memoize api-get-dog-pic))
+
+(defn get-dog-pics [breed]
+  (mapi-get-dog-pics breed))
+
+(defn get-dog-pic [p]
+  (let [[_ breed s] (u/split-by-slash p)]
+    (mapi-get-dog-pic breed s)))
+
+(defn get-breeds []
+  (->> (mapi-get-dog-breeds)
+       keys
+       (map #(subs (str %) 1))
+       (into [])))
+
+(defn breed-exists? [path]
+  (u/member (subs path 1) (get-breeds)))
 
 (defn get-few-dog-pics [breed]
   (into [] (take 10 (get-dog-pics breed))))
@@ -53,38 +68,13 @@
   (doall
    (into [] (map get-filename-only (get-few-dog-pics breed)))))
 
-(def http-cache (atom {}))
-
-(defn set-http-cache! [breed]
-  (swap! http-cache conj {(keyword breed) (get-pics-clean breed)})
-  ;; (reset! http-cache (doall (into [] (get-pics-clean))))
-  )
-
 (defn get-dog-list! [breed]
-  (let [kw (keyword breed)]
-    (if (kw @http-cache)
-      (kw @http-cache)
-      (kw (set-http-cache! breed)))))
+  (get-pics-clean breed))
 
 (defn dog-exists?
   "Check against the path string, S always has a leading slash.
   Sample: /whippet/n02091134_10918.jpg"
   [p]
   (let [[_ breed s] (u/split-by-slash p)]
-    (let [dogs ((keyword breed) @http-cache)]
+    (let [dogs (get-dog-list! breed)]
       (u/member s dogs))))
-
-(defn base-image-url [breed]
-  (str "https://images.dog.ceo/breeds/" breed "/"))
-
-(defn get-dog-pic
-  "Ensure that S has the leading slash.
-  Sample: /whippet/n02091134_10242.jpg"
-  [p]
-  (let [[_ breed s] (u/split-by-slash p)]
-    (-> (client/get
-         (str (base-image-url breed) s)
-         ;; {:as :stream}
-         {:as :byte-array}
-         )
-        :body)))
