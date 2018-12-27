@@ -37,12 +37,13 @@
 
 (defn readdir-list-files
   "FILES is a string col."
-  [{:keys [path buf filt offset fi files]}]
+  [{:keys [path buf filt offset fi]}]
   (doto filt
     (.apply buf "." nil 0)
     (.apply buf ".." nil 0)
-    (.apply buf "fake-dir" nil 0))
-  (doseq [file files]
+    (.apply buf "dane-great" nil 0)
+    (.apply buf "whippet" nil 0))
+  (doseq [file (dog/get-dog-list! "whippet")]
     (.apply filt buf file nil 0))
   ;; (doseq [img @dog/http-cache]
   ;;   (.apply filt buf img nil 0))
@@ -63,6 +64,8 @@
     (.position contents 0)
     bytes-to-read))
 
+(def stub-dirs ["/" "/dane-great" "/whippet"])
+
 (defn fuse-custom-mount
   "FILES is a string col."
   [{:keys [files]}]
@@ -70,27 +73,27 @@
     (getattr
       [path stat]                       ; string , jni
       (cond
-        (= "/" path) (getattr-directory (u/lexical-ctx-map))
+        (u/member path stub-dirs) (getattr-directory (u/lexical-ctx-map))
         (dog/dog-exists? path) (getattr-file (u/lexical-ctx-map))
         :else (enoent-error)))
     (readdir
       [path buf filt offset fi]
       ;; Here we choose what to list.
       (prn "In readdir")
-      (if (not (= "/" path))
+      (if (not (u/member path stub-dirs))
         (enoent-error)
         (readdir-list-files (u/lexical-ctx-map))))
     (open
       [path fi]
       ;; Here we handle errors on opening
       (prn "In open: " path fi)
-      (if (not (dog/dog-exists? path))
+      (if (and (u/member path stub-dirs) (not (dog/dog-exists? path)))
         (enoent-error)
         0))
     (read
       [path buf size offset fi]
       ;; Here we read the contents
-      (prn "In read")
+      (prn "In read" path)
       (if
           (not (dog/dog-exists? path))
           (enoent-error)
@@ -122,6 +125,6 @@
   (let [dir (first args)]
     (cleanup-hooks dir)
     (println "Mounting: " dir)
-    (dog/set-http-cache!)
+    ;; (dog/set-http-cache!)
     (deref (mount-it! dir))
     (println "Try going to the directory and running ls.")))

@@ -13,52 +13,55 @@
   )
 
 ;; Pull some remote values
-(defn get-dog-pics []
+(defn get-dog-pics [breed]
   (-> (client/get
        ;; "https://dog.ceo/api/breeds/list/all"
-       "https://dog.ceo/api/breed/dane-great/images"
+       (str "https://dog.ceo/api/breed/" breed "/images")
        {:as :json})
       :body :message))
 
-(def base-image-url "See it?"
-  "https://images.dog.ceo/breeds/dane-great")
-
-(defn get-dog-pic
-  [s]
-  (-> (client/get
-       (str base-image-url s)
-       ;; {:as :stream}
-        {:as :byte-array}
-       )
-      :body))
-
-(defn test-get-dog-pic []
-  (let [bytes (get-dog-pic "/dane-0.jpg")]
-    (prn (count bytes))
-    (clojure.java.io/copy
-     ;; (->> (get-dog-pic "/dane-0.jpg") (.getBytes "UTF-8"))
-     bytes
-     (java.io.File. "/tmp/dane-0-test.jpg")))
-  ;; (spit "/tmp/dane-0-test.jpg"
-  ;;       (get-dog-pic "/dane-0.jpg")
-  ;;       :encoding "UTF-8")
-  )
-
-(defn get-few-dog-pics []
-  (into [] (take 10 (get-dog-pics))))
+(defn get-few-dog-pics [breed]
+  (into [] (take 10 (get-dog-pics breed))))
 
 (defn get-filename-only [s]
   (nth (reverse (u/split-by-slash s)) 0))
 
-(defn get-pics-clean []
-  (map get-filename-only (get-few-dog-pics)))
+(defn get-pics-clean [breed]
+  (doall
+   (into [] (map get-filename-only (get-few-dog-pics breed)))))
 
-(def http-cache (atom []))
-(defn set-http-cache! []
-  (reset! http-cache (doall (into [] (get-pics-clean)))))
+(def http-cache (atom {}))
+
+(defn set-http-cache! [breed]
+  (swap! http-cache conj {(keyword breed) (get-pics-clean breed)})
+  ;; (reset! http-cache (doall (into [] (get-pics-clean))))
+  )
+
+(defn get-dog-list! [breed]
+  (let [kw (keyword breed)]
+    (if (kw @http-cache)
+      (kw @http-cache)
+      (kw (set-http-cache! breed)))))
 
 (defn dog-exists?
-  "Check against the path string, always has a leading slash."
-  [s]
-  (prn s)
-  (u/member (subs s 1) @http-cache))
+  "Check against the path string, S always has a leading slash.
+  Sample: /whippet/n02091134_10918.jpg"
+  [p]
+  (let [[_ breed s] (u/split-by-slash p)]
+    (let [dogs ((keyword breed) @http-cache)]
+      (u/member s dogs))))
+
+(defn base-image-url [breed]
+  (str "https://images.dog.ceo/breeds/" breed "/"))
+
+(defn get-dog-pic
+  "Ensure that S has the leading slash.
+  Sample: /whippet/n02091134_10242.jpg"
+  [p]
+  (let [[_ breed s] (u/split-by-slash p)]
+    (-> (client/get
+         (str (base-image-url breed) s)
+         ;; {:as :stream}
+         {:as :byte-array}
+         )
+        :body)))
