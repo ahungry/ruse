@@ -29,10 +29,7 @@
 
 (def mapi-get-dog-pics (memoize api-get-dog-pics))
 
-(defn api-get-dog-pic
-  "Ensure that S has the leading slash.
-  Sample: /whippet/n02091134_10242.jpg"
-  [breed s]
+(defn api-get-dog-pic [breed s]
   (-> (client/get
        (str "https://images.dog.ceo/breeds/" breed "/" s)
        ;; {:as :stream}
@@ -45,7 +42,10 @@
 (defn get-dog-pics [breed]
   (mapi-get-dog-pics breed))
 
-(defn get-dog-pic [p]
+(defn get-dog-pic
+  "Ensure that P has the leading slash.
+  Sample: /whippet/n02091134_10242.jpg"
+  [p]
   (let [[_ breed s] (u/split-by-slash p)]
     (mapi-get-dog-pic breed s)))
 
@@ -80,9 +80,7 @@
 (def http-cache (atom {}))
 
 (defn set-http-cache! [breed]
-  (swap! http-cache conj {(keyword breed) (get-pics-clean breed)})
-  ;; (reset! http-cache (doall (into [] (get-pics-clean))))
-  )
+  (swap! http-cache conj {(keyword breed) (get-pics-clean breed)}))
 
 (defn get-dog-list! [breed]
   (let [kw (keyword breed)]
