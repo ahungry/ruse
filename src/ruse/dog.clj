@@ -49,11 +49,20 @@
   (let [[_ breed s] (u/split-by-slash p)]
     (mapi-get-dog-pic breed s)))
 
-(defn get-breeds []
+(defn get-dog-breeds []
   (->> (mapi-get-dog-breeds)
        keys
        (map #(subs (str %) 1))
        (into [])))
+
+(def breeds-atom (atom nil))
+
+(defn set-breeds-atom! []
+  (reset! breeds-atom (get-dog-breeds)))
+
+(defn get-breeds []
+  (if @breeds-atom @breeds-atom
+      (set-breeds-atom!)))
 
 (defn breed-exists? [path]
   (u/member (subs path 1) (get-breeds)))
@@ -68,13 +77,23 @@
   (doall
    (into [] (map get-filename-only (get-few-dog-pics breed)))))
 
+(def http-cache (atom {}))
+
+(defn set-http-cache! [breed]
+  (swap! http-cache conj {(keyword breed) (get-pics-clean breed)})
+  ;; (reset! http-cache (doall (into [] (get-pics-clean))))
+  )
+
 (defn get-dog-list! [breed]
-  (get-pics-clean breed))
+  (let [kw (keyword breed)]
+    (if (kw @http-cache)
+      (kw @http-cache)
+      (kw (set-http-cache! breed)))))
 
 (defn dog-exists?
   "Check against the path string, S always has a leading slash.
   Sample: /whippet/n02091134_10918.jpg"
   [p]
   (let [[_ breed s] (u/split-by-slash p)]
-    (let [dogs (get-dog-list! breed)]
+    (let [dogs ((keyword breed) @http-cache)]
       (u/member s dogs))))

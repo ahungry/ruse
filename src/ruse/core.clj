@@ -75,9 +75,7 @@
 
 (def stub-dirs (set-stub-dirs))
 
-(defn fuse-custom-mount
-  "FILES is a string col."
-  [{:keys [files]}]
+(defn fuse-custom-mount []
   (proxy [FuseStubFS] []
     (getattr
       [path stat]                       ; string , jni
@@ -111,7 +109,7 @@
 (def stub-atom (atom nil))
 
 (defn mount-it! [dir]
-  (let [stub (fuse-custom-mount {:files @dog/http-cache})]
+  (let [stub (fuse-custom-mount)]
     (future
       (reset! stub-atom stub)
       ;; params: path blocking debug options
@@ -134,6 +132,5 @@
   (let [dir (first args)]
     (cleanup-hooks dir)
     (println "Mounting: " dir)
-    ;; (dog/set-http-cache!)
     (deref (mount-it! dir))
     (println "Try going to the directory and running ls.")))
