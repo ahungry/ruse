@@ -23,57 +23,63 @@
 (defn enoent-error []
   (* -1 (ErrorCodes/ENOENT)))
 
+(defn getattr-directory [path stat]
+  (doto stat
+    (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
+    (-> .-st_nlink (.set 2))))
+
+(defn getattr-file [path stat]
+  (doto stat
+    (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
+    (-> .-st_nlink (.set 1))
+    ;; Fake size reporting - 10MB is plenty.
+    (-> .-st_size (.set (* 1024 1024 1)))))
+
+(defn readdir-list-files [path buf filt offset fi]
+  (doto filt
+    (.apply buf "." nil 0)
+    (.apply buf ".." nil 0)
+    (.apply buf "fake-dir" nil 0))
+  (doseq [img @dog/http-cache]
+    (.apply filt buf img nil 0))
+  filt)
+
+(defn read-fuse-file [path buf size offset fi]
+  (let [
+        bytes (dog/get-dog-pic path)
+        length (count bytes) ;; 67617 ;; (count bytes)
+        bytes-to-read (min (- length offset) size)
+        contents (ByteBuffer/wrap bytes)
+        bytes-read (byte-array bytes-to-read)
+        ]
+    (doto contents
+      (.position offset)
+      (.get bytes-read 0 bytes-to-read))
+    (-> buf (.put 0 bytes-read 0 bytes-to-read))
+    (.position contents 0)
+    bytes-to-read))
+
 (defn hello-fuse-custom
   "A reference implementation.  Serves a directory from the dog API of
   the various images."
   []
   (let [hello-path (String. "/hello")
         hello-str (String. "Hello World!")
-        o (proxy [
-                  FuseStubFS
-                  ;; HelloFuse
-                  ] []
-            (getattr [path stat]
-              ;; path is just a string, easy.
-              ;; Here we set attributes
+        o (proxy [FuseStubFS] []
+            (getattr
+              [path stat]               ; string , jni
               (cond
-                ;; If it's the root, give dir permissions.
-                (= "/" path)
-                (doto stat
-                  (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
-                  (-> .-st_nlink (.set 2))
-                  )
+                (= "/" path) (getattr-directory path stat)
+                (dog/dog-exists? path) (getattr-file path stat)
+                :else (enoent-error)))
 
-                ;; Otherwise, if the dog exists, treat it like its there.
-                (dog/dog-exists? path)
-                (doto stat
-                  (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
-                  (-> .-st_nlink (.set 1))
-                  ;; Fake size reporting - 10MB is plenty.
-                  (-> .-st_size (.set (* 1024 1024 1))))
-
-                :else
-                (enoent-error)
-                ))
-
-            (readdir [path buf filt offset fi]
+            (readdir
+              [path buf filt offset fi]
               ;; Here we choose what to list.
               (prn "In readdir")
               (if (not (= "/" path))
                 (enoent-error)
-                (do
-                  (doto filt
-                    ;; Go back up a directory
-                    (.apply buf "." nil 0)
-                    (.apply buf ".." nil 0)
-                    ;; List other top level directories.
-                    (.apply buf (.substring hello-path 1) nil 0)
-                    )
-                  (doseq [img @dog/http-cache]
-                    (.apply filt buf img nil 0))
-                  filt)
-                )
-              )
+                (readdir-list-files [path buf filt offset fi])))
 
             (open [path fi]
               ;; Here we handle errors on opening
@@ -82,27 +88,14 @@
                 (enoent-error)
                 0))
 
-            (read [path buf size offset fi]
+            (read
+              [path buf size offset fi]
               ;; Here we read the contents
               (prn "In read")
               (if
                   (not (dog/dog-exists? path))
                   (enoent-error)
-                  (let [
-                        bytes (dog/get-dog-pic path)
-                        length (count bytes) ;; 67617 ;; (count bytes)
-                        bytes-to-read (min (- length offset) size)
-                        contents (ByteBuffer/wrap bytes)
-                        bytes-read (byte-array bytes-to-read)
-                        ]
-                    (doto contents
-                      (.position offset)
-                      (.get bytes-read 0 bytes-to-read))
-                    (-> buf (.put 0 bytes-read 0 bytes-to-read))
-                    (.position contents 0)
-                    bytes-to-read
-                    )
-                  ))
+                  (read-fuse-file path buf size offset fi)))
             )]
     o))
 
