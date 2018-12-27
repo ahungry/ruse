@@ -48,10 +48,10 @@
   filt)
 
 (defn readdir-list-files [{:keys [path buf filt offset fi] :as m}]
-  (case path
-    "/" (readdir-list-files-base m ["dane-great" "whippet"] [])
-    "/dane-great" (readdir-list-files-base m [] (dog/get-dog-list! "dane-great"))
-    "/whippet" (readdir-list-files-base m [] (dog/get-dog-list! "whippet"))
+  (cond
+    (= "/" path) (readdir-list-files-base m (dog/get-breeds) [])
+    ;; Pop off leading slash and show the list of breeds.
+    :else (readdir-list-files-base m [] (dog/get-dog-list! (subs path 1)))
     ))
 
 (defn read-fuse-file [{:keys [path buf size offset fi]}]
@@ -69,7 +69,11 @@
     (.position contents 0)
     bytes-to-read))
 
-(def stub-dirs ["/" "/dane-great" "/whippet"])
+(defn set-stub-dirs []
+  (->> (conj (map #(str "/" %) (dog/get-breeds)) "/")
+       (into [])))
+
+(def stub-dirs (set-stub-dirs))
 
 (defn fuse-custom-mount
   "FILES is a string col."

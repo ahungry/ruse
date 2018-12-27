@@ -12,6 +12,29 @@
   (:gen-class)
   )
 
+(defn get-dog-breeds-from-api []
+  (-> (client/get "https://dog.ceo/api/breeds/list/all"
+                  {:as :json})
+      :body :message))
+
+(defn get-dog-breeds []
+  (->> (get-dog-breeds-from-api)
+       keys
+       (map #(subs (str %) 1))
+       (into [])))
+
+(def breeds-atom (atom nil))
+
+(defn set-breeds-atom! []
+  (reset! breeds-atom (get-dog-breeds)))
+
+(defn get-breeds []
+  (if @breeds-atom @breeds-atom
+      (set-breeds-atom!)))
+
+(defn breed-exists? [path]
+  (u/member (subs path 1) (get-breeds)))
+
 ;; Pull some remote values
 (defn get-dog-pics [breed]
   (-> (client/get
