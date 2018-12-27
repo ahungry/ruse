@@ -35,19 +35,24 @@
     ;; Fake size reporting - 10MB is plenty.
     (-> .-st_size (.set (* 1024 1024 1)))))
 
-(defn readdir-list-files
+(defn readdir-list-files-base
   "FILES is a string col."
-  [{:keys [path buf filt offset fi]}]
+  [{:keys [path buf filt offset fi]} dirs files]
   (doto filt
     (.apply buf "." nil 0)
-    (.apply buf ".." nil 0)
-    (.apply buf "dane-great" nil 0)
-    (.apply buf "whippet" nil 0))
-  (doseq [file (dog/get-dog-list! "whippet")]
+    (.apply buf ".." nil 0))
+  (doseq [dir dirs]
+    (.apply filt buf dir nil 0))
+  (doseq [file files]
     (.apply filt buf file nil 0))
-  ;; (doseq [img @dog/http-cache]
-  ;;   (.apply filt buf img nil 0))
   filt)
+
+(defn readdir-list-files [{:keys [path buf filt offset fi] :as m}]
+  (case path
+    "/" (readdir-list-files-base m ["dane-great" "whippet"] [])
+    "/dane-great" (readdir-list-files-base m [] (dog/get-dog-list! "dane-great"))
+    "/whippet" (readdir-list-files-base m [] (dog/get-dog-list! "whippet"))
+    ))
 
 (defn read-fuse-file [{:keys [path buf size offset fi]}]
   (let [
