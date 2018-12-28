@@ -11,6 +11,11 @@ Currently I have a sample that maps some RESTful API data to a local
 file mount.  This then allows the user to run all their native file
 level commands (`ls`, `grep`, `feh`) on the directory.
 
+I also have a working implementation of mounting a Postgres database
+as a file system.
+
+Next up, may do the same for MySQL.
+
 ## Installation
 
 This requires lein:
@@ -25,6 +30,8 @@ lein deps
 ```
 
 ## Usage
+
+### Dog REST Api
 
 Try this command, you'll be able to browse a directory sourced from
 the RESTful API from the response of images at: https://dog.ceo/api/breed/dane-great/images
@@ -53,6 +60,17 @@ capable file explorer (or use these two small tools to do it):
 sudo pacman -S raw-thumbnailer pcmanfm
 cd /tpm/dog-pics
 pcmanfm .
+```
+
+### Postgres
+
+Create (or update) a ~/.ruserc file, by copying the repo template one
+from conf/default-rc.edn, then plugin your own database credentials.
+
+Now, run it via:
+
+```
+mkdir /tmp/my-db ; lein run pg /tmp/my-db
 ```
 
 
