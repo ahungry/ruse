@@ -28,8 +28,14 @@
     (or (u/member path dirs)
         (case (pg/what-is-path? path)
           "schema" true
-          "table" (u/member (:table pmap) (pg/get-tables (:schema pmap)))
-          "record" (u/member (:pk pmap) (pg/get-rows (:schema pmap) (:table pmap)))
+          "table" (u/member (:table pmap) (pg/mget-tables (:schema pmap)))
+          "record" (do
+                     (let [rows (pg/mget-rows (:schema pmap) (:table pmap))
+                           pk (:pk pmap)]
+                       (prn "Matches on file: " rows pk
+                            (u/member (:pk pmap) (pg/mget-rows (:schema pmap) (:table pmap)))
+                            ))
+                     (u/member (:pk pmap) (pg/mget-rows (:schema pmap) (:table pmap))))
           "other" false))))
 
 (defn getattr-directory [{:keys [path stat]}]
@@ -65,7 +71,7 @@
 (defn readdir-list-files [{:keys [path buf filt offset fi] :as m}]
   (cond
     ;; Show our available schemas
-    (= "/" path) (readdir-list-files-base m (pg/get-schemas) [])
+    (= "/" path) (readdir-list-files-base m (pg/mget-schemas) [])
 
     ;; List the tables under the schema
     (pg/is-schema? path)
@@ -73,7 +79,7 @@
       (prn "WAS SCHEMA?" path)
       (readdir-list-files-base
        m
-       (pg/get-tables (:schema (pg/destructure-path path)))
+       (pg/mget-tables (:schema (pg/destructure-path path)))
        []))
 
     ;; List the records under the path
@@ -82,7 +88,7 @@
     (do
       (readdir-list-files-base
        m []
-       (pg/get-rows (:schema (pg/destructure-path path))
+       (pg/mget-rows (:schema (pg/destructure-path path))
                     (:table (pg/destructure-path path)))))
     ))
 
@@ -111,7 +117,7 @@
       bytes-to-read)))
 
 (defn set-root-dirs []
-  (->> (conj (map #(str "/" %) (pg/get-schemas)) "/")
+  (->> (conj (map #(str "/" %) (pg/mget-schemas)) "/")
        (into [])))
 
 (def root-dirs (set-root-dirs))
@@ -146,8 +152,7 @@
       ;; Here we handle errors on opening
       (prn "In open: " path fi)
       (let [pmap (pg/destructure-path path)]
-        (prn pmap)
-        (if (path-exists? path root-dirs)
+        (if (not (path-exists? path root-dirs))
           (enoent-error)
           0)))
     (read
@@ -166,7 +171,7 @@
     (future
       (reset! stub-atom stub)
       ;; params: path blocking debug options
-      (-> stub (.mount (u/string-to-path dir) true true (into-array String []))))
+      (-> stub (.mount (u/string-to-path dir) true false (into-array String []))))
     ))
 
 (defn umount-it! []
