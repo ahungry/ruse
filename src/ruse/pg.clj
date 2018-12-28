@@ -7,6 +7,7 @@
    [ruse.util :as u]
    [ruse.rc :as rc]
    [clojure.java.jdbc :as j]
+   [cheshire.core :as c]
    )
   (:import
    )
@@ -81,10 +82,9 @@ from \"%s\".\"%s\"
 WHERE ctid = ?::tid " schema table) ctid]))
 
 (defn get-row [schema table safe-ctid]
-  (with-out-str
-    (-> (q-get-row schema table (unsafe-ctid safe-ctid))
+  (-> (q-get-row schema table (unsafe-ctid safe-ctid))
         first
-        clojure.pprint/pprint)))
+        (c/generate-string {:pretty true})))
 
 (def mget-row (memoize get-row))
 

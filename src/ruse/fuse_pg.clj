@@ -29,13 +29,7 @@
         (case (pg/what-is-path? path)
           "schema" true
           "table" (u/member (:table pmap) (pg/mget-tables (:schema pmap)))
-          "record" (do
-                     (let [rows (pg/mget-rows (:schema pmap) (:table pmap))
-                           pk (:pk pmap)]
-                       (prn "Matches on file: " rows pk
-                            (u/member (:pk pmap) (pg/mget-rows (:schema pmap) (:table pmap)))
-                            ))
-                     (u/member (:pk pmap) (pg/mget-rows (:schema pmap) (:table pmap))))
+          "record" (u/member (:pk pmap) (pg/mget-rows (:schema pmap) (:table pmap)))
           "other" false))))
 
 (defn getattr-directory [{:keys [path stat]}]
