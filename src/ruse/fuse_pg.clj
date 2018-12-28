@@ -6,7 +6,7 @@
    [clojure.spec.test.alpha :as stest]
    [clj-http.client :as client]
    [ruse.util :as u]
-   [ruse.dog :as dog]
+   [ruse.pg :as pg]
    )
   (:import
    (jnr.ffi Platform Pointer)
@@ -49,52 +49,69 @@
 
 (defn readdir-list-files [{:keys [path buf filt offset fi] :as m}]
   (cond
-    (= "/" path) (readdir-list-files-base m (dog/get-breeds) [])
-    ;; Pop off leading slash and show the list of breeds.
-    :else (readdir-list-files-base m [] (dog/get-dog-list! (subs path 1)))
+    ;; Show our available schemas
+    (= "/" path) (readdir-list-files-base m (pg/get-schemas) [])
+
+    ;; List the tables under the schema
+    (pg/is-schema? path)
+    (readdir-list-files-base
+     m
+     (pg/get-tables (:schema (pg/destructure-path path)))
+     [])
+
+    ;; List the records under the path
+    ;; (pg/is-table? path)
+    :else
+    (readdir-list-files-base
+     m []
+     (pg/get-rows (:schema (pg/destructure-path path))
+                  (:table (pg/destructure-path path))))
     ))
 
 (defn read-fuse-file [{:keys [path buf size offset fi]}]
-  (let [
-        bytes (dog/get-dog-pic path)
-        length (count bytes)
-        bytes-to-read (min (- length offset) size)
-        contents (ByteBuffer/wrap bytes)
-        bytes-read (byte-array bytes-to-read)
-        ]
-    (doto contents
-      (.position offset)
-      (.get bytes-read 0 bytes-to-read))
-    (-> buf (.put 0 bytes-read 0 bytes-to-read))
-    (.position contents 0)
-    bytes-to-read))
+  (let [pmap (pg/destructure-path path)]
+    (let [
+          bytes (pg/get-row (:schema pmap)
+                            (:table pmap)
+                            (:ctid pmap))
+          length (count bytes)
+          bytes-to-read (min (- length offset) size)
+          contents (ByteBuffer/wrap bytes)
+          bytes-read (byte-array bytes-to-read)
+          ]
+      (doto contents
+        (.position offset)
+        (.get bytes-read 0 bytes-to-read))
+      (-> buf (.put 0 bytes-read 0 bytes-to-read))
+      (.position contents 0)
+      bytes-to-read)))
 
-(defn set-stub-dirs []
-  (->> (conj (map #(str "/" %) (dog/get-breeds)) "/")
+(defn set-root-dirs []
+  (->> (conj (map #(str "/" %) (pg/get-schemas)) "/")
        (into [])))
 
-(def stub-dirs (set-stub-dirs))
+(def root-dirs (set-root-dirs))
 
 (defn fuse-custom-mount []
   (proxy [FuseStubFS] []
     (getattr
       [path stat]                       ; string , jni
       (cond
-        (u/member path stub-dirs) (getattr-directory (u/lexical-ctx-map))
-        (dog/dog-exists? path) (getattr-file (u/lexical-ctx-map))
+        (u/member path root-dirs) (getattr-directory (u/lexical-ctx-map))
+        (pg/is-record? path) (getattr-file (u/lexical-ctx-map))
         :else (enoent-error)))
     (readdir
       [path buf filt offset fi]
       ;; Here we choose what to list.
       (prn "In readdir")
-      (if (not (u/member path stub-dirs))
+      (if (not (u/member path root-dirs))
         (enoent-error)
         (readdir-list-files (u/lexical-ctx-map))))
     (open
       [path fi]
       ;; Here we handle errors on opening
       (prn "In open: " path fi)
-      (if (and (u/member path stub-dirs) (not (dog/dog-exists? path)))
+      (if (and (u/member path root-dirs) (not (pg/is-record? path)))
         (enoent-error)
         0))
     (read
@@ -102,7 +119,7 @@
       ;; Here we read the contents
       (prn "In read" path)
       (if
-          (not (dog/dog-exists? path))
+          (not (pg/is-record? path))
           (enoent-error)
           (read-fuse-file (u/lexical-ctx-map))))))
 

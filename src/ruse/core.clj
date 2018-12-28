@@ -18,4 +18,5 @@
   (let [[type dir] args]
     (cond
       (= "dog" type) (fdog/main dir)
+      (= "pg" type) (fpg/main dir)
       :else (println "Please use a known system as first arg [dog, pg]" ))))
