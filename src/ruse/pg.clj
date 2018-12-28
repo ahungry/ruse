@@ -92,6 +92,25 @@ WHERE ctid = ?::tid " schema table) ctid]))
 
 (def mget-row (memoize get-row))
 
+(defn q-get-custom-rows [sql]
+  (j/query
+   (pg-db)
+   [sql]))
+
+(def mq-get-custom-rows (memoize q-get-custom-rows))
+
+(defn get-custom-rows []
+  (let [conf (-> (rc/get-rc) :pg-custom)
+        rows (mq-get-custom-rows (:sql conf))
+        pks (map (:pk conf) rows)]
+    (zipmap pks rows)))
+
+(defn get-custom-rows-files []
+  (keys (get-custom-rows)))
+
+(defn get-custom-row [s]
+  (get (get-custom-rows) s))
+
 (defn destructure-path
   "P is the path for fuse, such as:
 

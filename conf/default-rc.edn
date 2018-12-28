@@ -11,4 +11,8 @@
   :port 5432
   :ssl false
   ;; :sslfactory "org.postgresql.ssl.NonValidatingFactory"
-  }}
+  }
+ ;; A sample custom query - find results in /custom
+ :pg-custom
+ {:sql "SELECT code FROM project LIMIT 1"
+  :pk :code}}
