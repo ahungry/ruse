@@ -7,7 +7,9 @@
    [clj-http.client :as client]
    [ruse.util :as u]
    [ruse.dog :as dog]
-   [ruse.fuse-dog :as fdog])
+   [ruse.fuse-dog :as fdog]
+   [ruse.pg :as pg]
+   [ruse.fuse-pg :as fpg])
   (:gen-class))
 
 (defn -main

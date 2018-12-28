@@ -5,6 +5,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [clj-http "3.9.1"]
+                 [org.clojure/java.jdbc "0.7.8"]
+                 [org.postgresql/postgresql "42.2.5.jre7"]
                  [cheshire "5.8.1"]
                  [org.clojure/tools.reader "1.3.2"]
                  [com.github.serceman/jnr-fuse "0.5.2.1"]]
