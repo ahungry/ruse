@@ -72,7 +72,7 @@
   (prn "Path was: " path)
   (cond
     ;; Show our available schemas
-    (= "/" path) (readdir-list-files-base m (pg/mget-schemas) [])
+    (= "/" path) (readdir-list-files-base m (conj (pg/mget-schemas) "custom") [])
 
     (= "/custom" path) (readdir-list-files-base m [] (pg/get-custom-rows-files))
 

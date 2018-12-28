@@ -92,21 +92,20 @@ WHERE ctid = ?::tid " schema table) ctid]))
 
 (def mget-row (memoize get-row))
 
-;; SQL could be a file path or a real statement
-(defn q-get-custom-rows [rcsql]
-  (prn "Lets slurp some custom sql maybe" rcsql)
-  (let [sql (cond (re-find #"/" rcsql) (slurp rcsql)
-                  :else rcsql)]
-    (prn "Generating custom rows with this SQL: " sql)
-    (j/query
-     (pg-db)
-     [sql])))
+(defn q-get-custom-rows [sql]
+  (j/query
+   (pg-db)
+   [sql]))
 
 (def mq-get-custom-rows (memoize q-get-custom-rows))
 
 (defn get-custom-rows []
   (let [conf (-> (rc/get-rc) :pg-custom)
-        rows (mq-get-custom-rows (:sql conf))
+        raw-sql (:sql conf)
+        ;; if sql starts with a slash, assume its a file
+        sql (cond (re-find #"/" raw-sql) (slurp raw-sql)
+                  :else raw-sql)
+        rows (mq-get-custom-rows sql)
         pks (map (:pk conf) rows)]
     (zipmap pks rows)))
 
