@@ -34,7 +34,7 @@ RESTful endpoints, or even to display database records for editing in
 a user's favorite editor.
 
 ```
-mkdir /tmp/dog-pics && lein run /tmp/dog-pics
+mkdir /tmp/dog-pics && lein run dog /tmp/dog-pics
 ```
 
 Then in another terminal:
