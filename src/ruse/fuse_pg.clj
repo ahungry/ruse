@@ -54,26 +54,35 @@
 
     ;; List the tables under the schema
     (pg/is-schema? path)
-    (readdir-list-files-base
-     m
-     (pg/get-tables (:schema (pg/destructure-path path)))
-     [])
+    (do
+      (prn "WAS SCHEMA?" path)
+      (readdir-list-files-base
+       m
+       (pg/get-tables (:schema (pg/destructure-path path)))
+       []))
 
     ;; List the records under the path
-    ;; (pg/is-table? path)
-    :else
-    (readdir-list-files-base
-     m []
-     (pg/get-rows (:schema (pg/destructure-path path))
-                  (:table (pg/destructure-path path))))
+    (pg/is-table? path)
+    ;; :else
+    (do
+      (readdir-list-files-base
+       m []
+       (pg/get-rows (:schema (pg/destructure-path path))
+                    (:table (pg/destructure-path path)))))
     ))
 
 (defn read-fuse-file [{:keys [path buf size offset fi]}]
   (let [pmap (pg/destructure-path path)]
     (let [
-          bytes (pg/get-row (:schema pmap)
-                            (:table pmap)
-                            (:ctid pmap))
+          bytes
+          (byte-array
+           (concat
+            (->
+             (pg/get-row (:schema pmap)
+                         (:table pmap)
+                         (:pk pmap))
+             .getBytes)
+            (byte-array [0x3])))
           length (count bytes)
           bytes-to-read (min (- length offset) size)
           contents (ByteBuffer/wrap bytes)
@@ -92,22 +101,27 @@
 
 (def root-dirs (set-root-dirs))
 
+(defn is-valid-dir? [path root-dirs]
+  (or (u/member path root-dirs)
+      (pg/is-table? path)))
+
 (defn fuse-custom-mount []
   (proxy [FuseStubFS] []
     (getattr
       [path stat]                       ; string , jni
       (cond
-        (or (u/member path root-dirs)
-            (pg/is-table? path))
+        (is-valid-dir? path root-dirs )
         (getattr-directory (u/lexical-ctx-map))
 
-        (pg/is-record? path) (getattr-file (u/lexical-ctx-map))
+        (pg/is-record? path)
+        (getattr-file (u/lexical-ctx-map))
+
         :else (enoent-error)))
     (readdir
       [path buf filt offset fi]
       ;; Here we choose what to list.
       (prn "In readdir")
-      (if (not (u/member path root-dirs))
+      (if (not (is-valid-dir? path root-dirs))
         (enoent-error)
         (readdir-list-files (u/lexical-ctx-map))))
     (open
@@ -133,7 +147,7 @@
     (future
       (reset! stub-atom stub)
       ;; params: path blocking debug options
-      (-> stub (.mount (u/string-to-path dir) true true (into-array String []))))
+      (-> stub (.mount (u/string-to-path dir) true false (into-array String []))))
     ))
 
 (defn umount-it! []

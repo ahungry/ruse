@@ -65,9 +65,24 @@ WHERE table_schema = ? " schema]
    [(format "select CTID::text
 from \"%s\".\"%s\" LIMIT 50" schema table)]))
 
+(defn safe-ctid
+  "Convert an unsafe (file system) version to a safe one.
+  will translate (2,3) into 2_3."
+  [ctid]
+  (clojure.string/replace ctid #"\((.*?),(.*?)\)" "$1_$2"))
+
+(defn unsafe-ctid
+  "Convert an unsafe (file system) version to a safe one.
+  will translate (2,3) into 2_3."
+  [ctid]
+  (let [tuple
+        (clojure.string/split ctid #"_")]
+    (format "(%s,%s)" (first tuple) (second tuple))))
+
 (defn get-rows [schema table]
   (->> (q-get-rows schema table)
-       (map :ctid)))
+       (map :ctid)
+       (map safe-ctid)))
 
 (def mget-rows (memoize get-rows))
 
@@ -78,9 +93,10 @@ from \"%s\".\"%s\" LIMIT 50" schema table)]))
 from \"%s\".\"%s\"
 WHERE ctid = ?::tid " schema table) ctid]))
 
-(defn get-row [schema table ctid]
-  (->> (q-get-row schema table ctid)
-       first))
+(defn get-row [schema table safe-ctid]
+  (-> (q-get-row schema table (unsafe-ctid safe-ctid))
+      first
+      str))
 
 (def mget-rows (memoize get-rows))
 
