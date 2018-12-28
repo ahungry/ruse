@@ -92,7 +92,7 @@ WHERE ctid = ?::tid " schema table) ctid]))
 
 (def mget-row (memoize get-row))
 
-(defn q-get-custom-rows [sql]
+(defn q-get-custom-rows [sql pk]
   (j/query
    (pg-db)
    [sql]))
@@ -105,9 +105,9 @@ WHERE ctid = ?::tid " schema table) ctid]))
         ;; if sql starts with a slash, assume its a file
         sql (cond (re-find #"/" raw-sql) (slurp raw-sql)
                   :else raw-sql)
-        rows (mq-get-custom-rows sql)
+        rows (mq-get-custom-rows sql (:pk conf))
         pks (map (:pk conf) rows)]
-    (zipmap pks rows)))
+    (zipmap (map str pks) rows)))
 
 (defn get-custom-rows-files []
   (keys (get-custom-rows)))
