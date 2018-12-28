@@ -133,7 +133,10 @@
         (enoent-error)
         (cond
           (re-find #"^/custom/.*" path)
-          (getattr-file (u/lexical-ctx-map))
+          (do
+            (if (= "null" (get-row-by-path path))
+              (enoent-error)
+              (getattr-file (u/lexical-ctx-map))))
 
           (is-valid-dir? path root-dirs)
           (getattr-directory (u/lexical-ctx-map))
