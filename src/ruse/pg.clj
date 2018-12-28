@@ -98,7 +98,7 @@ WHERE ctid = ?::tid " schema table) ctid]))
       first
       str))
 
-(def mget-rows (memoize get-rows))
+(def mget-row (memoize get-row))
 
 (defn destructure-path
   "P is the path for fuse, such as:

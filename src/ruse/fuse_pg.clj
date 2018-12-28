@@ -28,12 +28,19 @@
     (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
     (-> .-st_nlink (.set 2))))
 
+;; TODO: May need some type of fake size reporting if this causes tons of issues.
+;; Maybe we can query postgres for just the storage size and not the data hm...
+;; Worst case, at least we're limiting to ~50 records per dir.
 (defn getattr-file [{:keys [path stat]}]
-  (doto stat
-    (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
-    (-> .-st_nlink (.set 1))
-    ;; Fake size reporting - 10MB is plenty.
-    (-> .-st_size (.set (* 1024 1024 1)))))
+  (let [pmap (pg/destructure-path path)
+        row (pg/mget-row (:schema pmap) (:table pmap) (:pk pmap))
+        bytes (-> row .getBytes)
+        length (count bytes)]
+    (doto stat
+      (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
+      (-> .-st_nlink (.set 1))
+      ;; Fake size reporting - 10MB is plenty.
+      (-> .-st_size (.set length)))))
 
 (defn readdir-list-files-base
   "FILES is a string col."
@@ -78,11 +85,11 @@
           (byte-array
            (concat
             (->
-             (pg/get-row (:schema pmap)
-                         (:table pmap)
-                         (:pk pmap))
+             (pg/mget-row (:schema pmap)
+                          (:table pmap)
+                          (:pk pmap))
              .getBytes)
-            (byte-array [0x3])))
+            (byte-array [0x3])))        ; add a byte at end of file
           length (count bytes)
           bytes-to-read (min (- length offset) size)
           contents (ByteBuffer/wrap bytes)
