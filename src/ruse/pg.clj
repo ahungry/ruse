@@ -63,7 +63,7 @@ WHERE table_schema = ? " schema]
   (j/query
    pg-db
    [(format "select CTID::text
-from \"%s\".\"%s\" LIMIT 50" schema table)]))
+from \"%s\".\"%s\" LIMIT 500" schema table)]))
 
 (defn safe-ctid
   "Convert an unsafe (file system) version to a safe one.

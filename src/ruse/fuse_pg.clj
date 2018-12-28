@@ -39,7 +39,6 @@
     (doto stat
       (-> .-st_mode (.set (bit-or FileStat/S_IFREG (read-string "0444"))))
       (-> .-st_nlink (.set 1))
-      ;; Fake size reporting - 10MB is plenty.
       (-> .-st_size (.set length)))))
 
 (defn readdir-list-files-base
