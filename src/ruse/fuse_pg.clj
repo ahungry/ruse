@@ -32,6 +32,12 @@
           "record" (u/member (:pk pmap) (pg/mget-rows (:schema pmap) (:table pmap)))
           "other" false))))
 
+(defn get-row-by-path [path]
+  (let [pmap (pg/destructure-path path)]
+    (if (re-find #"^/custom" path) "FAKE"
+        (pg/mget-row (:schema pmap) (:table pmap) (:pk pmap)))
+    ))
+
 (defn getattr-directory [{:keys [path stat]}]
   (doto stat
     (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
@@ -41,8 +47,7 @@
 ;; Maybe we can query postgres for just the storage size and not the data hm...
 ;; Worst case, at least we're limiting to ~50 records per dir.
 (defn getattr-file [{:keys [path stat]}]
-  (let [pmap (pg/destructure-path path)
-        row (pg/mget-row (:schema pmap) (:table pmap) (:pk pmap))
+  (let [row (get-row-by-path path )
         bytes (-> row .getBytes)
         length (count bytes)]
     (doto stat
@@ -90,27 +95,24 @@
     ))
 
 (defn read-fuse-file [{:keys [path buf size offset fi]}]
-  (let [pmap (pg/destructure-path path)
-        row (pg/mget-row (:schema pmap)
-                          (:table pmap)
-                          (:pk pmap))]
-    (let [
-          bytes
-          (byte-array
-           (concat
-            (-> row .getBytes)
-            (byte-array [0x3])))        ; add a byte at end of file
-          length (count bytes)
-          bytes-to-read (min (- length offset) size)
-          contents (ByteBuffer/wrap bytes)
-          bytes-read (byte-array bytes-to-read)
-          ]
-      (doto contents
-        (.position offset)
-        (.get bytes-read 0 bytes-to-read))
-      (-> buf (.put 0 bytes-read 0 bytes-to-read))
-      (.position contents 0)
-      bytes-to-read)))
+  (let [
+        row (get-row-by-path path)
+        bytes
+        (byte-array
+         (concat
+          (-> row .getBytes)
+          (byte-array [0x3])))        ; add a byte at end of file
+        length (count bytes)
+        bytes-to-read (min (- length offset) size)
+        contents (ByteBuffer/wrap bytes)
+        bytes-read (byte-array bytes-to-read)
+        ]
+    (doto contents
+      (.position offset)
+      (.get bytes-read 0 bytes-to-read))
+    (-> buf (.put 0 bytes-read 0 bytes-to-read))
+    (.position contents 0)
+    bytes-to-read))
 
 (defn set-root-dirs []
   (->> (conj (conj (map #(str "/" %) (pg/mget-schemas)) "/") "/custom")

@@ -132,7 +132,8 @@ WHERE ctid = ?::tid " schema table) ctid]))
        (:schema (destructure-path p))))
 
 (defn what-is-path? [p]
-  (cond (is-record? p) "record"
-        (is-table? p) "table"
-        (is-schema? p) "schema"
-        :else "other"))
+  (cond
+    (is-record? p) "record"
+    (is-table? p) "table"
+    (is-schema? p) "schema"
+    :else "other"))
