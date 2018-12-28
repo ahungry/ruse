@@ -109,7 +109,9 @@ WHERE ctid = ?::tid " schema table) ctid]))
   (keys (get-custom-rows)))
 
 (defn get-custom-row [s]
-  (get (get-custom-rows) s))
+  (->
+   (get (get-custom-rows) s)
+   (c/generate-string {:pretty true})))
 
 (defn destructure-path
   "P is the path for fuse, such as:

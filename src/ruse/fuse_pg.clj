@@ -26,6 +26,7 @@
 (defn path-exists? [path dirs]
   (let [pmap (pg/destructure-path path)]
     (or (u/member path dirs)
+        (re-find #"^/custom/" path)
         (case (pg/what-is-path? path)
           "schema" true
           "table" (u/member (:table pmap) (pg/mget-tables (:schema pmap)))
@@ -34,7 +35,7 @@
 
 (defn get-row-by-path [path]
   (let [pmap (pg/destructure-path path)]
-    (if (re-find #"^/custom" path) "FAKE"
+    (if (re-find #"^/custom" path) (pg/get-custom-row (:table pmap))
         (pg/mget-row (:schema pmap) (:table pmap) (:pk pmap)))
     ))
 
@@ -131,7 +132,10 @@
       (if (not (path-exists? path root-dirs))
         (enoent-error)
         (cond
-          (is-valid-dir? path root-dirs )
+          (re-find #"^/custom/.*" path)
+          (getattr-file (u/lexical-ctx-map))
+
+          (is-valid-dir? path root-dirs)
           (getattr-directory (u/lexical-ctx-map))
 
           (pg/is-record? path)
