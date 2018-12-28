@@ -81,10 +81,14 @@ from \"%s\".\"%s\" LIMIT 500" schema table)]))
 from \"%s\".\"%s\"
 WHERE ctid = ?::tid " schema table) ctid]))
 
+(defn sort-map-keys [m]
+  (into (sorted-map) m))
+
 (defn get-row [schema table safe-ctid]
   (-> (q-get-row schema table (unsafe-ctid safe-ctid))
-        first
-        (c/generate-string {:pretty true})))
+      first
+      sort-map-keys
+      (c/generate-string {:pretty true})))
 
 (def mget-row (memoize get-row))
 
