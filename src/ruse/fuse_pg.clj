@@ -97,7 +97,10 @@
     (getattr
       [path stat]                       ; string , jni
       (cond
-        (u/member path root-dirs) (getattr-directory (u/lexical-ctx-map))
+        (or (u/member path root-dirs)
+            (pg/is-table? path))
+        (getattr-directory (u/lexical-ctx-map))
+
         (pg/is-record? path) (getattr-file (u/lexical-ctx-map))
         :else (enoent-error)))
     (readdir
@@ -111,7 +114,7 @@
       [path fi]
       ;; Here we handle errors on opening
       (prn "In open: " path fi)
-      (if (and (u/member path root-dirs) (not (pg/is-record? path)))
+      (if (and (u/member path root-dirs) (not (pg/what-is-path? path)))
         (enoent-error)
         0))
     (read
@@ -119,7 +122,7 @@
       ;; Here we read the contents
       (prn "In read" path)
       (if
-          (not (pg/is-record? path))
+          (not (pg/what-is-path? path))
           (enoent-error)
           (read-fuse-file (u/lexical-ctx-map))))))
 
