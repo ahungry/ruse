@@ -23,6 +23,15 @@
 (defn enoent-error []
   (* -1 (ErrorCodes/ENOENT)))
 
+(defn path-exists? [path dirs]
+  (let [pmap (pg/destructure-path path)]
+    (or (u/member path dirs)
+        (case (pg/what-is-path? path)
+          "schema" true
+          "table" (u/member (:table pmap) (pg/get-tables (:schema pmap)))
+          "record" (u/member (:pk pmap) (pg/get-rows (:schema pmap) (:table pmap)))
+          "other" false))))
+
 (defn getattr-directory [{:keys [path stat]}]
   (doto stat
     (-> .-st_mode (.set (bit-or FileStat/S_IFDIR (read-string "0755"))))
@@ -115,14 +124,16 @@
   (proxy [FuseStubFS] []
     (getattr
       [path stat]                       ; string , jni
-      (cond
-        (is-valid-dir? path root-dirs )
-        (getattr-directory (u/lexical-ctx-map))
+      (if (not (path-exists? path root-dirs))
+        (enoent-error)
+        (cond
+          (is-valid-dir? path root-dirs )
+          (getattr-directory (u/lexical-ctx-map))
 
-        (pg/is-record? path)
-        (getattr-file (u/lexical-ctx-map))
+          (pg/is-record? path)
+          (getattr-file (u/lexical-ctx-map))
 
-        :else (enoent-error)))
+          :else (enoent-error))))
     (readdir
       [path buf filt offset fi]
       ;; Here we choose what to list.
@@ -134,9 +145,11 @@
       [path fi]
       ;; Here we handle errors on opening
       (prn "In open: " path fi)
-      (if (and (u/member path root-dirs) (not (pg/what-is-path? path)))
-        (enoent-error)
-        0))
+      (let [pmap (pg/destructure-path path)]
+        (prn pmap)
+        (if (path-exists? path root-dirs)
+          (enoent-error)
+          0)))
     (read
       [path buf size offset fi]
       ;; Here we read the contents
@@ -153,7 +166,7 @@
     (future
       (reset! stub-atom stub)
       ;; params: path blocking debug options
-      (-> stub (.mount (u/string-to-path dir) true false (into-array String []))))
+      (-> stub (.mount (u/string-to-path dir) true true (into-array String []))))
     ))
 
 (defn umount-it! []

@@ -5,6 +5,7 @@
    [clojure.spec.gen.alpha :as gen]
    [clojure.spec.test.alpha :as stest]
    [ruse.util :as u]
+   [ruse.rc :as rc]
    [clojure.java.jdbc :as j]
    )
   (:import
@@ -12,26 +13,12 @@
   (:gen-class)
   )
 
-(def pg-db {:dbtype "postgresql"
-             :dbname "ahungry"
-             :host "localhost"
-             :user "ahungry"
-             :password "ahungry"
-             :ssl false
-             ;; :sslfactory "org.postgresql.ssl.NonValidatingFactory"
-             })
-
-(defn get-projects []
-  (j/query
-   pg-db
-   ["select * from project WHERE 1 = ?" 1]
-   ))
-
-(def mget-projects (memoize get-projects))
+(defn pg-db []
+  (:pg (rc/get-rc)))
 
 (defn q-get-schemas []
   (j/query
-   pg-db
+   (pg-db)
    ["select distinct(table_schema)
 from information_schema.tables
 WHERE table_schema NOT IN ('pg_catalog', 'pg_statistic', 'information_schema') "]
@@ -45,7 +32,7 @@ WHERE table_schema NOT IN ('pg_catalog', 'pg_statistic', 'information_schema') "
 
 (defn q-get-tables [schema]
   (j/query
-   pg-db
+   (pg-db)
    ["select distinct(table_name)
 from information_schema.tables
 WHERE table_schema = ? " schema]
@@ -61,7 +48,7 @@ WHERE table_schema = ? " schema]
 ;; TODO: Make the pk and limit configurable
 (defn q-get-rows [schema table]
   (j/query
-   pg-db
+   (pg-db)
    [(format "select CTID::text
 from \"%s\".\"%s\" LIMIT 500" schema table)]))
 
@@ -88,15 +75,16 @@ from \"%s\".\"%s\" LIMIT 500" schema table)]))
 
 (defn q-get-row [schema table ctid]
   (j/query
-   pg-db
+   (pg-db)
    [(format "select *
 from \"%s\".\"%s\"
 WHERE ctid = ?::tid " schema table) ctid]))
 
 (defn get-row [schema table safe-ctid]
-  (-> (q-get-row schema table (unsafe-ctid safe-ctid))
-      first
-      str))
+  (with-out-str
+    (-> (q-get-row schema table (unsafe-ctid safe-ctid))
+        first
+        clojure.pprint/pprint)))
 
 (def mget-row (memoize get-row))
 
@@ -123,4 +111,5 @@ WHERE ctid = ?::tid " schema table) ctid]))
 (defn what-is-path? [p]
   (cond (is-record? p) "record"
         (is-table? p) "table"
-        (is-schema? p) "schema"))
+        (is-schema? p) "schema"
+        :else "other"))

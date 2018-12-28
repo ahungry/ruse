@@ -1,0 +1,14 @@
+; -*- mode: clojure; -*-
+; vim: filetype=clojure
+
+{:pg
+ ;; Your Postgres DSN
+ {:dbtype "postgresql"
+  :dbname "ahungry"
+  :host "localhost"
+  :user "ahungry"
+  :password "ahungry"
+  :port 5432
+  :ssl false
+  ;; :sslfactory "org.postgresql.ssl.NonValidatingFactory"
+  }}
