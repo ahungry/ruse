@@ -63,9 +63,12 @@
   filt)
 
 (defn readdir-list-files [{:keys [path buf filt offset fi] :as m}]
+  (prn "Path was: " path)
   (cond
     ;; Show our available schemas
     (= "/" path) (readdir-list-files-base m (pg/mget-schemas) [])
+
+    (= "/custom" path) (readdir-list-files-base m [] (pg/get-custom-rows-files))
 
     ;; List the tables under the schema
     (pg/is-schema? path)
@@ -83,20 +86,19 @@
       (readdir-list-files-base
        m []
        (pg/mget-rows (:schema (pg/destructure-path path))
-                    (:table (pg/destructure-path path)))))
+                     (:table (pg/destructure-path path)))))
     ))
 
 (defn read-fuse-file [{:keys [path buf size offset fi]}]
-  (let [pmap (pg/destructure-path path)]
+  (let [pmap (pg/destructure-path path)
+        row (pg/mget-row (:schema pmap)
+                          (:table pmap)
+                          (:pk pmap))]
     (let [
           bytes
           (byte-array
            (concat
-            (->
-             (pg/mget-row (:schema pmap)
-                          (:table pmap)
-                          (:pk pmap))
-             .getBytes)
+            (-> row .getBytes)
             (byte-array [0x3])))        ; add a byte at end of file
           length (count bytes)
           bytes-to-read (min (- length offset) size)
@@ -111,7 +113,7 @@
       bytes-to-read)))
 
 (defn set-root-dirs []
-  (->> (conj (map #(str "/" %) (pg/mget-schemas)) "/")
+  (->> (conj (conj (map #(str "/" %) (pg/mget-schemas)) "/") "/custom")
        (into [])))
 
 (def root-dirs (set-root-dirs))
