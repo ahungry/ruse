@@ -119,13 +119,12 @@
   (->> (conj (conj (map #(str "/" %) (pg/mget-schemas)) "/") "/custom")
        (into [])))
 
-(def root-dirs (set-root-dirs))
-
 (defn is-valid-dir? [path root-dirs]
   (or (u/member path root-dirs)
       (pg/is-table? path)))
 
 (defn fuse-custom-mount []
+  (def root-dirs (set-root-dirs))
   (proxy [FuseStubFS] []
     (getattr
       [path stat]                       ; string , jni
